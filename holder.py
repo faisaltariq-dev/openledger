@@ -3,21 +3,13 @@ import secrets
 import json
 import time
 import uuid
+import urllib.request
+import urllib.error
 
-#print("must create a wallet before so you dont burn the only 50btc in the system")
-#print("hint: the public key to nakamoto of balance 50 is:")
-#print("52a7066d73950870109c258f28811c52446c82433aaad7327441ab199b5b6de3")
-#print("hint: the private key to nakamoto of balance 50 is:")
-#print("7005c2fe1766f02e311d02c01939d29c7ea2e24e9ef155b5eed2fd75cd44ffa0")
-
+BACKEND_URL = "https://forkcommit.pythonanywhere.com"
 
 def sha256(data: str) -> str:
     return hashlib.sha256(data.encode()).hexdigest()
-
-
-# ---------------------------
-# WALLET GENERATION
-# ---------------------------
 
 def generate_wallet():
     private_key = secrets.token_hex(32)
@@ -36,11 +28,6 @@ def generate_wallet():
     print("Public key:", public_key)
     print("Saved as:", filename)
 
-
-# ---------------------------
-# TRANSACTION CREATION
-# ---------------------------
-
 def create_transaction():
     private_key = input("Enter your private key: ").strip()
     public_key = sha256(private_key)
@@ -56,61 +43,55 @@ def create_transaction():
         "tx_id": str(uuid.uuid4())
     }
 
-    # Create transaction hash (without signature)
     tx_string = json.dumps(transaction, sort_keys=True)
     tx_hash = sha256(tx_string)
-
-    # Signature (educational model)
     signature = sha256(public_key + tx_hash)
 
     transaction["tx_hash"] = tx_hash
     transaction["signature"] = signature
 
-    filename = f"tx_{transaction['tx_id']}.json"
-    with open(filename, "w") as f:
-        json.dump(transaction, f, indent=4)
+    payload = json.dumps(transaction).encode("utf-8")
+    req = urllib.request.Request(
+        f"{BACKEND_URL}/submit",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
 
-    print("Transaction created.")
-    print("Saved as:", filename)
+    try:
+        with urllib.request.urlopen(req) as resp:
+            result = json.loads(resp.read().decode())
+            print("Transaction accepted.")
+            print("Block index:", result["block_index"])
+            print("Block hash:", result["block_hash"])
+    except urllib.error.HTTPError as e:
+        body = json.loads(e.read().decode())
+        print("Transaction rejected:", body.get("message", "Unknown error"))
+    except urllib.error.URLError as e:
+        print("Network error:", e.reason)
 
-#
-#
-#
 def check_balance():
-    import os
-
     public_key = input("Enter your public key: ").strip()
 
-    if not os.path.exists("ledger.json"):
-        print("No ledger found. Balance = 0")
-        return
+    url = f"{BACKEND_URL}/balance/{public_key}"
+    req = urllib.request.Request(url, method="GET")
 
-    with open("ledger.json") as f:
-        chain = json.load(f)
-
-    balance = 0.0
-
-    for block in chain:
-        tx = block["transaction"]
-
-        if tx["receiver"] == public_key:
-            balance += float(tx["amount"])
-
-        if tx["sender"] == public_key:
-            balance -= float(tx["amount"])
-
-    print("Public key:", public_key)
-    print("Balance:", balance)
-# ---------------------------
-# MENU
-# ---------------------------
+    try:
+        with urllib.request.urlopen(req) as resp:
+            result = json.loads(resp.read().decode())
+            print("Public key:", result["public_key"])
+            print("Balance:", result["balance"])
+    except urllib.error.HTTPError as e:
+        body = json.loads(e.read().decode())
+        print("Error:", body.get("message", "Unknown error"))
+    except urllib.error.URLError as e:
+        print("Network error:", e.reason)
 
 if __name__ == "__main__":
     print("1. Generate wallet")
     print("2. Create transaction")
     print("3. Check balance")
     choice = input("Select option: ").strip()
-    
 
     if choice == "1":
         generate_wallet()
