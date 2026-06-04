@@ -1,0 +1,18 @@
+
+[
+    {
+        "index": 1,
+        "previous_hash": "0",
+        "timestamp": 1700000000,
+        "transaction": {
+            "sender": "NAKAMOTO",
+            "receiver": "52a7066d73950870109c258f28811c52446c82433aaad7327441ab199b5b6de3",
+            "amount": "50",
+            "timestamp": 1700000000,
+            "tx_id": "nakamoto",
+            "tx_hash": "nakamoto",
+            "signature": "nakamoto"
+        },
+        "block_hash": "NAKAMOTO_BLOCK"
+    }
+]
